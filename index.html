@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slot Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f4f7;
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+        }
+        h1 {
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+        .game-container {
+            border: 5px solid #007bff;
+            border-radius: 15px;
+            padding: 20px;
+            background: linear-gradient(to bottom right, #e0f7fa, #ffe082);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: inline-block;
+        }
+        .reels {
+            display: flex;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        .reel {
+            border: 2px solid #333;
+            margin: 0 15px;
+            width: 100px; 
+            height: 220px; 
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: transform 0.5s ease; /* Animation for spinning effect */
+        }
+        .symbol {
+            font-size: 60px; 
+            line-height: 70px;
+            color: #333;
+        }
+        .btn {
+            padding: 10px 20px; 
+            font-size: 18px; 
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            transition: background-color 0.3s; 
+        }
+        .btn:hover {
+            background-color: #218838;
+        }
+        #balance {
+            font-size: 24px; 
+            margin-bottom: 20px;
+        }
+        .withdraw-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .withdrawal-message, .win-message {
+            color: #007bff;
+            font-size: 24px; /* Increased font size */
+            display: none;
+            position: fixed; 
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); 
+            background-color: #ffeb3b; 
+            padding: 30px; /* Increased padding */
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            z-index: 1000; 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Slot Game</h1>
+    <div class="game-container">
+        <div id="balance">Balance: $0</div>
+        <div id="reels" class="reels"></div>
+
+        <div id="depositContainer">
+            <input type="number" id="depositAmount" placeholder="Deposit amount" min="1" />
+            <button id="depositButton" class="btn">Deposit</button>
+        </div>
+
+        <input type="number" id="bet" placeholder="Enter bet amount" min="1" class="hidden" />
+        <button id="spinButton" class="btn hidden">Spin!</button>
+        
+        <div class="withdraw-container hidden" id="withdrawContainer">
+            <input type="number" id="withdrawAmount" placeholder="Withdraw amount" min="1" />
+            <button id="withdrawButton" class="btn">Withdraw</button>
+            <div id="withdrawalMessage" class="withdrawal-message">Successfully withdrawn to your account!</div>
+        </div>
+        
+        <div id="winMessage" class="win-message">You won: $<span id="winningAmount"></span>!</div>
+    </div>
+    
+    <script>
+        const SYMBOLS_COUNT = { A: 2, B: 4, C: 6, D: 8 };
+        const SYMBOL_VALUES = { A: 5, B: 4, C: 3, D: 2 };
+        let balance = 0;
+
+        const updateBalanceDisplay = () => {
+            document.getElementById('balance').innerText = `Balance: $${balance.toFixed(2)}`;
+            document.getElementById('depositContainer').style.display = balance <= 0 ? 'block' : 'none';
+            document.getElementById('withdrawContainer').style.display = balance > 0 ? 'block' : 'none';
+            document.getElementById('spinButton').style.display = balance > 0 ? 'inline-block' : 'none';
+            document.getElementById('bet').style.display = balance > 0 ? 'inline' : 'none';
+        };
+
+        const spin = () => {
+            const symbols = [];
+            for (const [symbol, count] of Object.entries(SYMBOLS_COUNT)) {
+                for (let i = 0; i < count; i++) {
+                    symbols.push(symbol);
+                }
+            }
+
+            const reels = [];
+            for (let i = 0; i < 3; i++) {
+                const reelSymbols = [...symbols];
+                const reel = [];
+                for (let j = 0; j < 3; j++) {
+                    const randomIndex = Math.floor(Math.random() * reelSymbols.length);
+                    reel.push(reelSymbols[randomIndex]);
+                    reelSymbols.splice(randomIndex, 1);
+                }
+                reels.push(reel);
+            }
+            return reels;
+        };
+
+        const printRows = (reels) => {
+            const reelsContainer = document.getElementById('reels');
+            reelsContainer.innerHTML = '';
+            reels.forEach(reel => {
+                const reelDiv = document.createElement('div');
+                reelDiv.classList.add('reel');
+                reelDiv.style.transform = 'rotateX(0deg)'; // Initial position for animation
+                reelDiv.style.transition = 'transform 1s ease'; // Animation for spinning effect
+                setTimeout(() => {
+                    reelDiv.style.transform = 'rotateX(360deg)'; // Trigger spin animation
+                }, 10);
+                reel.forEach(symbol => {
+                    const span = document.createElement('span');
+                    span.innerText = symbol;
+                    span.classList.add('symbol');
+                    reelDiv.appendChild(span);
+                });
+                reelsContainer.appendChild(reelDiv);
+            });
+        };
+
+        const getWinnings = (reels, bet) => {
+            let winnings = 0;
+            for (let row = 0; row < 3; row++) {
+                const symbols = reels.map(reel => reel[row]);
+                if (new Set(symbols).size === 1) {
+                    winnings += bet * SYMBOL_VALUES[symbols[0]];
+                }
+            }
+            return winnings;
+        };
+
+        document.getElementById('depositButton').addEventListener('click', () => {
+            const depositAmount = parseFloat(document.getElementById('depositAmount').value);
+            if (isNaN(depositAmount) || depositAmount <= 0) {
+                alert('Invalid deposit amount. Please try again.');
+                return;
+            }
+            balance += depositAmount;
+            document.getElementById('depositAmount').value = '';
+            updateBalanceDisplay();
+        });
+
+        document.getElementById('withdrawButton').addEventListener('click', () => {
+            const withdrawAmount = parseFloat(document.getElementById('withdrawAmount').value);
+            if (isNaN(withdrawAmount) || withdrawAmount <= 0 || withdrawAmount > balance) {
+                alert('Invalid withdrawal amount. Please try again.');
+                return;
+            }
+            balance -= withdrawAmount;
+            document.getElementById('withdrawAmount').value = '';
+            updateBalanceDisplay();
+
+            const withdrawalMessage = document.getElementById('withdrawalMessage');
+            withdrawalMessage.style.display = 'block';
+            setTimeout(() => {
+                withdrawalMessage.style.display = 'none';
+            }, 3000);
+
+            alert('Your money has been withdrawn!');
+        });
+
+        document.getElementById('spinButton').addEventListener('click', () => {
+            const bet = parseFloat(document.getElementById('bet').value);
+            if (isNaN(bet) || bet <= 0 || bet > balance) {
+                alert('Invalid bet amount. Please try again.');
+                return;
+            }
+
+            balance -= bet;
+            const reels = spin();
+            printRows(reels);
+            const winnings = getWinnings(reels, bet);
+            balance += winnings;
+
+            if (winnings > 0) {
+                document.getElementById('winningAmount').innerText = winnings.toFixed(2);
+                document.getElementById('winMessage').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('winMessage').style.display = 'none';
+                }, 3000);
+            }
+            updateBalanceDisplay();
+        });
+
+        updateBalanceDisplay(); // Initial call to update the display
+    </script>
+</body>
+</html>
+
